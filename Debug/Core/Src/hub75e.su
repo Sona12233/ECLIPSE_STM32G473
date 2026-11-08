@@ -1,0 +1,17 @@
+../Core/Src/hub75e.c:19:13:HUB75_Clear	8	static
+../Core/Src/hub75e.c:30:6:HUB75_TestRed	8	static
+../Core/Src/hub75e.c:38:6:HUB75_TestGreen	8	static
+../Core/Src/hub75e.c:46:6:HUB75_TestBlue	8	static
+../Core/Src/hub75e.c:54:20:CLK_Pulse	8	static
+../Core/Src/hub75e.c:60:20:LAT_Pulse	8	static
+../Core/Src/hub75e.c:66:6:HUB75_fill_screen	24	static
+../Core/Src/hub75e.c:102:6:HUB75_ClearScreen	16	static
+../Core/Src/hub75e.c:110:6:HUB75_SetPixel	16	static
+../Core/Src/hub75e.c:116:6:HUB75_ClearPixel	16	static
+../Core/Src/hub75e.c:122:6:HUB75_SwapBuffers	16	static
+../Core/Src/hub75e.c:129:6:HUB75_Display	24	static
+../Core/Src/hub75e.c:211:6:bouncing_ball	16	static
+../Core/Src/hub75e.c:238:6:rectangle	16	static
+../Core/Src/hub75e.c:271:6:snake	24	static
+../Core/Src/hub75e.c:297:6:bresenhams_algorithm	32	static
+../Core/Src/hub75e.c:347:6:circle_algorithm	24	static

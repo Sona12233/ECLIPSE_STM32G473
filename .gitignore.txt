@@ -1,0 +1,16 @@
+# Build output
+Debug/
+Release/
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Compiled files
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
