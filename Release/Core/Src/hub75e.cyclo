@@ -1,5 +1,0 @@
-../Core/Src/hub75e.c:9:13:HUB75_Clear	1
-../Core/Src/hub75e.c:20:6:HUB75_TestRed	1
-../Core/Src/hub75e.c:28:6:HUB75_TestGreen	1
-../Core/Src/hub75e.c:36:6:HUB75_TestBlue	1
-../Core/Src/hub75e.c:56:6:HUB75_SendRedRow	2
