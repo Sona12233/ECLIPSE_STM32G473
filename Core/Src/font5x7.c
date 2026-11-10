@@ -470,7 +470,6 @@ void font5x7_DrawStringCentered(const char* text) {
 	if (size <= 63)  // 1 line
 		font5x7_display_one_line(text, size, 12, (63 - size) / 2);
 
-
 	else if (size > 63 && size <= 126)  // 2 lines
 		font5x7_display_two_line(text, size);
 

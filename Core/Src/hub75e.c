@@ -10,11 +10,13 @@
 
 #include <stdlib.h>
 
-static uint8_t framebuffer1[32][64];
-static uint8_t framebuffer2[32][64]; // modifying functions
+static uint8_t framebuffer1[32][64]; // currently displayed
+static uint8_t framebuffer2[32][64]; // prepare next
 
-static uint8_t (*front_buffer)[64] = framebuffer1; //
-static uint8_t (*back_buffer)[64] = framebuffer2; // modifying functions
+static uint8_t (*front_buffer)[64] = framebuffer1; // currently displayed
+static uint8_t (*back_buffer)[64] = framebuffer2; // prepare next
+
+static volatile uint8_t swap_requested = 0;
 
 static void HUB75_Clear(void)
 {
@@ -120,10 +122,11 @@ void HUB75_ClearPixel(const uint8_t x, const uint8_t y) {
 }
 
 void HUB75_SwapBuffers(void) {
-    uint8_t (*temp)[64] = front_buffer;
-
-    front_buffer = back_buffer;
-    back_buffer = temp;
+	swap_requested = 1;
+//    uint8_t (*temp)[64] = front_buffer;
+//
+//    front_buffer = back_buffer;
+//    back_buffer = temp;
 }
 
 void HUB75_Display(void) {
@@ -164,6 +167,17 @@ void HUB75_Display(void) {
 	}
     // Disable display after finishing all 16 addresses
 	HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
+
+	// swap buffers after displaying text if needed
+	if (swap_requested) {
+	    uint8_t (*temp)[64] = front_buffer;
+
+	    front_buffer = back_buffer;
+	    back_buffer = temp;
+
+	    swap_requested = 0;
+	}
+
 }
 
 //void bouncing_ball() {
