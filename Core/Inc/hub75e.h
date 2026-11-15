@@ -19,10 +19,15 @@ void HUB75_TestBlue(void);
 void HUB75_Init(void);
 void HUB75_fill_screen(const uint8_t red, const uint8_t green, const uint8_t blue);
 void HUB75_ClearScreen(void);
-void HUB75_SetPixel(const uint8_t x, const uint8_t y);
-void HUB75_ClearPixel(const uint8_t x, const uint8_t y);
+void HUB75_SetPixel(const uint8_t x, const int16_t y);
+void HUB75_ClearPixel(const uint8_t x, const int16_t y);
 void HUB75_Display(void);
 void HUB75_SwapBuffers(void);
+
+void HUB75_DMA_Init(void);
+
+//remove later
+void HUB75_DMA_TestPattern(void);
 
 void bouncing_ball(void);
 void rectangle(void);

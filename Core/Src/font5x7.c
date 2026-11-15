@@ -10,9 +10,10 @@
 #define FONT_HEIGHT 7
 #define FONT_WIDTH  5
 
-static uint8_t keep_line(const char* text, uint8_t index, const uint8_t LAST_WORD, const uint8_t ANOTHER_WORD, const uint8_t SIZE);
-static void drawStringAt(const char *text, int16_t start_col);
-
+static uint8_t keep_line(const char* text, uint8_t index,
+		const uint8_t LAST_WORD,
+		const uint8_t ANOTHER_WORD,
+		const uint8_t SIZE);
 
 static const uint8_t font[][FONT_HEIGHT] =
 {
@@ -414,9 +415,9 @@ static const uint8_t font_symbol[FONT_HEIGHT] =
 };
 
 
-void font5x7_DrawChar(char character,
-                       uint8_t start_row,
-                       int8_t start_column) {
+void font5x7_DrawChar(const char character,
+                      const uint8_t start_row,
+                      const int16_t start_column) {
 
 	const uint8_t* element;
 	if (character >= 'A' && character <= 'Z') {
@@ -451,7 +452,6 @@ void font5x7_DrawStringAt(const char* text, int16_t start_col) {
 
     while (text[x] != '\0') {
         font5x7_DrawChar(text[x], 12, start_col);
-
         ++x;
         start_col += 6;
     }
@@ -479,65 +479,66 @@ void font5x7_DrawStringCentered(const char* text) {
 void font5x7_display_one_line(const char* text, const uint8_t size,
 		const uint8_t start_row, uint8_t start_col) {
 
-		uint8_t x = 0;
-		while (x < size && text[x] != '\0') {
-			if(text[x] == ' ') {
-				++x; start_col += 2;
-			}
-			font5x7_DrawChar(text[x], start_row, start_col);
-			++x;
-			start_col += 6;
+	uint8_t x = 0;
+	while (x < size && text[x] != '\0') {
+		if(text[x] == ' ') {
+			++x; start_col += 2;
 		}
+		font5x7_DrawChar(text[x], start_row, start_col);
+		++x;
+		start_col += 6;
+	}
 }
 
 void font5x7_display_two_line(const char* text, const uint8_t SIZE) {
-		uint8_t start_row = 6;
-		uint8_t start_col = 0;
+	uint8_t start_row = 6;
+	uint8_t start_col = 0;
 
-		uint8_t x = 0;
-		uint8_t space = 0; // another word on same line
-		uint8_t last_word = 0; // when new line
-		uint8_t another_word = 0; // another word on same line counting spaces
-		char one_line[16] = {0};
-		while (text[x] != '\0' && x < SIZE && start_row <= 24) {
-			if(text[x + 1] == ' ' || text[x + 1] == '\0') {
-				if ((((x - last_word + 1) * 6) - (4 * another_word)) <= 63) {
-					if (!another_word) { // space = 0
-						memcpy(one_line, text + last_word, x - last_word + 1);
-					} else {
-						memcpy((one_line + space), text + space + last_word, x - space - last_word + 1);
-					}
+	uint8_t x = 0;
+	uint8_t space = 0; // another word on same line
+	uint8_t last_word = 0; // when new line
+	uint8_t another_word = 0; // another word on same line counting spaces
+	char one_line[16] = {0};
+	while (text[x] != '\0' && x < SIZE && start_row <= 24) {
+		if(text[x + 1] == ' ' || text[x + 1] == '\0') {
+			if ((((x - last_word + 1) * 6) - (4 * another_word)) <= 63) {
+				if (!another_word) { // space = 0
+					memcpy(one_line, text + last_word, x - last_word + 1);
+				} else {
+					memcpy((one_line + space), text + space + last_word, x - space - last_word + 1);
+				}
 
-					space = x - last_word + 1; // this is size of one line
-					++x;
-				}
-				//count if next word can fit in one line
-				if (keep_line(text, x + 1, last_word, another_word, SIZE)) {
-					++x;
-					++another_word;
-					continue;
-				}
-			} else {
-				++x; continue;
+				space = x - last_word + 1; // this is size of one line
+				++x;
 			}
+			//count if next word can fit in one line
+			if (keep_line(text, x + 1, last_word, another_word, SIZE)) {
+				++x;
+				++another_word;
+				continue;
+			}
+		} else {
+			++x; continue;
+		}
 
-			start_col = (63 - (space * 6 - 4 * another_word)) / 2 + 1;
+		start_col = (63 - (space * 6 - 4 * another_word)) / 2 + 1;
 
-			font5x7_display_one_line(one_line, space, start_row, start_col);
+		font5x7_display_one_line(one_line, space, start_row, start_col);
 
 //			HUB75_SwapBuffers();
 
-			// clean the array for next line
-			memset(one_line, 0, sizeof(one_line));
-			start_row += 12;
-			space = 0;
-			last_word = x + 1;
-			another_word = 0;
-			if (text[x + 1] != '\0') ++x;
-		}
+		// clean the array for next line
+		memset(one_line, 0, sizeof(one_line));
+		start_row += 12;
+		space = 0;
+		last_word = x + 1;
+		another_word = 0;
+		if (text[x + 1] != '\0') ++x;
+	}
 }
 
-static uint8_t keep_line(const char* text, uint8_t index, const uint8_t LAST_WORD, const uint8_t ANOTHER_WORD, const uint8_t SIZE) {
+static uint8_t keep_line(const char* text, uint8_t index, const uint8_t LAST_WORD,
+		const uint8_t ANOTHER_WORD, const uint8_t SIZE) {
 
 	if (text[index + 1] == '\0' ||
 	    text[index - 1] == '\0' ||
@@ -585,76 +586,6 @@ void HUB75_ReplaceTexts(const char* text[], const uint8_t SIZE) {
 	}
 }
 
-//void HUB75_ScrollTexts(const char* text[], const uint8_t SIZE) {
-//    static uint8_t current_text = 0;
-//
-//    // 0 = waiting, 1 = scrolling out, 2 = scrolling in
-//    static uint8_t state = 0;
-//
-//    static int16_t x = 0; // position
-//
-//    uint8_t width = strlen(text[current_text]) * 6 - 1;
-//
-//    // Initialization
-//    if (state == 0) {
-//        x = (64 - width) / 2;
-//        state = 3; // waiting
-////        timer_counter = 0;
-//
-////        Timer_Reset3s_Scrolling();
-//        timer3s_flag = 0;
-//        timer3s_counter_scrolling = 0;
-//
-//
-//        HUB75_ClearScreen();
-//        drawStringAt(text[current_text], x);
-//    }
-//
-//    // Start scrolling after 3 seconds
-//    if (timer3s_flag && state == 3) {
-//        timer3s_flag = 0;
-//        state = 1;
-//    }
-//
-//    // Move text every 50 ms
-//    if (timer50ms_flag) {
-//    	timer50ms_flag = 0;
-//
-//        if (state == 1) { // Scroll current word out
-//            --x;
-//
-//            if (x + width < 0) {
-//                ++current_text;
-//
-//                if (current_text >= SIZE) current_text = 0;
-//
-//                x = 64;
-//                state = 2;
-////                Timer_Reset3s_Scrolling();
-//            }
-//        }
-//        else if (state == 2) { // Bring next word to center
-//            --x;
-//
-//            width = strlen(text[current_text]) * 6 - 1;
-//            int16_t center = (64 - width) / 2;
-//
-//            if (x <= center) {
-//                x = center;
-//                state = 3;
-//
-//                timer3s_flag = 0;
-//                timer3s_counter_scrolling = 0;
-////                Timer_Reset3s_Scrolling();
-//            }
-//        }
-//
-//        HUB75_ClearScreen();
-//
-//        drawStringAt(text[current_text], x);
-//    }
-//}
-
 void HUB75_ScrollTexts(const char* text[], const uint8_t SIZE) {
 	static uint8_t start = 0;
 	static uint8_t scroll_out = 0;
@@ -662,6 +593,8 @@ void HUB75_ScrollTexts(const char* text[], const uint8_t SIZE) {
 	static uint8_t wait_3s = 0;
 
 	static uint8_t current = 0;
+
+	uint8_t redraw = 0; //flag when chaninf display
 
 	static int16_t x = 0; // position
 
@@ -672,9 +605,10 @@ void HUB75_ScrollTexts(const char* text[], const uint8_t SIZE) {
 		start = 1; wait_3s = 1;
 		timer3s_scrolling_flag = 0;
 		timer3s_scrolling_counter = 0;
-		HUB75_ClearScreen();
-		drawStringAt(text[current], x);
-		HUB75_SwapBuffers();
+		redraw = 1;
+//		HUB75_ClearScreen();
+//		drawStringAt(text[current], x);
+//		HUB75_SwapBuffers();
 	}
 
 	if (wait_3s && timer3s_scrolling_flag) {
@@ -686,7 +620,7 @@ void HUB75_ScrollTexts(const char* text[], const uint8_t SIZE) {
 	if (scroll_out && timer50ms_flag) {
 		timer50ms_flag = 0;
 
-		--x;
+		--x; redraw = 1;
 		if (x + current_size < 0) {
 			++current;
 			if (current >= SIZE) current = 0;
@@ -697,7 +631,7 @@ void HUB75_ScrollTexts(const char* text[], const uint8_t SIZE) {
 
 	if (scroll_in && timer50ms_flag) {
 		timer50ms_flag = 0;
-		--x;
+		--x; redraw = 1;
 
 		current_size = strlen(text[current]) * 6 - 1;
 		int8_t center = (64 - current_size) / 2;
@@ -711,19 +645,9 @@ void HUB75_ScrollTexts(const char* text[], const uint8_t SIZE) {
 		}
 	}
 
-	HUB75_ClearScreen();
-	drawStringAt(text[current], x);
-	HUB75_SwapBuffers();
-}
-
-void drawStringAt(const char* text, int16_t start_col) {
-    uint8_t x = 0;
-
-    while (text[x] != '\0')
-    {
-        font5x7_DrawChar(text[x], 12, start_col);
-
-        ++x;
-        start_col += 6;
-    }
+	if (redraw) {
+		HUB75_ClearScreen();
+		font5x7_DrawStringAt(text[current], x);
+		HUB75_SwapBuffers();
+	}
 }

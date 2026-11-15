@@ -103,10 +103,13 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim1);
 
   const char* my_text[] = {
-      "SONA",
-      "TIKO",
-	  "ARJUK",
+      "QWERTY",
+      "UIOP",
+	  "ASDFGHJK",
   };
+
+  HUB75_DMA_Init();
+//  HUB75_DMA_TestPattern();
 
   /* USER CODE END 2 */
 
@@ -114,16 +117,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  HUB75_ClearScreen();
 //	  font5x7_DrawStringCentered("SONA SONA MACHKALYAN");
 //	  HUB75_ScrollTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
 	  HUB75_ReplaceTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
-//	  HUB75_fill_screen(1, 0, 0);
+
 
 	  HUB75_Display();
-//	  font5x7_DrawChar('B', 0, 0);
 
-//	  HUB75_Refresh();
 //	  if (timer500ms_flag) {
 //		  timer500ms_flag = 0;
 //

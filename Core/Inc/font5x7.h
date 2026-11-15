@@ -15,7 +15,7 @@
 #define FONT_HEIGHT 7
 #define FONT_WIDTH  5
 
-void font5x7_DrawChar(char character, uint8_t start_row, int8_t start_column);
+void font5x7_DrawChar(const char character, const uint8_t start_row, const int16_t start_column);
 
 void font5x7_DrawStringCentered(const char* text);
 

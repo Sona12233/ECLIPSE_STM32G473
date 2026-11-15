@@ -18,6 +18,43 @@ static uint8_t (*back_buffer)[64] = framebuffer2; // prepare next
 
 static volatile uint8_t swap_requested = 0;
 
+// DMA variables
+#define RGB_MASK (R1_Pin | G1_Pin | B1_Pin | \
+                  R2_Pin | G2_Pin | B2_Pin)
+// 00000000 10011111 = 0x009F
+
+static uint32_t dma_buffer[65];
+
+static volatile uint8_t dma_done = 0;
+static volatile uint8_t dma_error = 0;
+static uint8_t dma_row = 0;
+
+
+extern DMA_HandleTypeDef hdma_tim16_up;
+extern TIM_HandleTypeDef htim16;
+
+static void HUB75_StartDMA(void);
+
+// REMOVE LATER
+void HUB75_DMA_TestPattern(void)
+{
+	for (uint8_t row = 0; row < 32; row++)
+	{
+	    for (uint8_t col = 0; col < 64; col++)
+	    {
+	        if (col > 60) framebuffer1[row][col] = 1;
+	    }
+	}
+
+	// Draw two vertical lines.1
+//	for (uint8_t row = 10; row < 20; row++)
+//	{
+//	    framebuffer1[row][20] = 1;
+//	    framebuffer1[row][42] = 1;
+//	}
+}
+
+
 static void HUB75_Clear(void)
 {
     HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, GPIO_PIN_RESET);
@@ -53,11 +90,11 @@ void HUB75_TestBlue(void)
     HAL_GPIO_WritePin(B2_GPIO_Port, B2_Pin, GPIO_PIN_SET);
 }
 
-static inline void CLK_Pulse(void)
-{
-    HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_RESET);
-}
+//static inline void CLK_Pulse(void)
+//{
+//    HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_SET);
+//    HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_RESET);
+//}
 
 static inline void LAT_Pulse(void)
 {
@@ -91,7 +128,7 @@ void HUB75_fill_screen(const uint8_t red, const uint8_t green, const uint8_t blu
 			HAL_GPIO_WritePin(B1_GPIO_Port, B1_Pin, blue  ? GPIO_PIN_SET : GPIO_PIN_RESET);
 			HAL_GPIO_WritePin(B2_GPIO_Port, B2_Pin, blue  ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
-			CLK_Pulse();
+//			CLK_Pulse();
 		}
 		LAT_Pulse();
 		// Enable display
@@ -109,76 +146,252 @@ void HUB75_ClearScreen(void) {
 	}
 }
 
-void HUB75_SetPixel(const uint8_t x, const uint8_t y) {
-	if (x >= 32 || y >= 64) return;
+void HUB75_SetPixel(const uint8_t x, const int16_t y) {
+	if (x >= 32 || x < 0 || y >= 64 || y < 0 ) return;
 
 	back_buffer[x][y] = 1;
 }
 
-void HUB75_ClearPixel(const uint8_t x, const uint8_t y) {
-	if (x >= 32 || y >= 64) return;
+void HUB75_ClearPixel(const uint8_t x, const int16_t y) {
+	if (x >= 32 || x < 0 || y >= 64 || y < 0 ) return;
 
 	back_buffer[x][y] = 0;
 }
 
 void HUB75_SwapBuffers(void) {
 	swap_requested = 1;
-//    uint8_t (*temp)[64] = front_buffer;
+}
+
+static void HUB75_DMA_Complete(DMA_HandleTypeDef *hdma) {
+    if (hdma != &hdma_tim16_up)
+        return;
+
+    // No more timer update DMA requests.
+    __HAL_TIM_DISABLE_DMA(&htim16, TIM_DMA_UPDATE);
+
+    // Stop the timer before another clock pulse is generated.
+    __HAL_TIM_DISABLE(&htim16);
+
+    dma_done = 1;
+}
+
+static void HUB75_DMA_Error(DMA_HandleTypeDef *hdma) {
+    if (hdma != &hdma_tim16_up)
+        return;
+
+    __HAL_TIM_DISABLE_DMA(&htim16, TIM_DMA_UPDATE);
+    __HAL_TIM_DISABLE(&htim16);
+
+    dma_error = 1;
+}
+
+static void HUB75_PrepareDMARow(uint8_t row) {
+    for (uint8_t i = 0; i < 64; ++i) {
+        uint32_t set_bits = 0;
+
+        if (front_buffer[row][i])
+            set_bits |= R1_Pin;
+
+        if (front_buffer[row + 16][i])
+            set_bits |= R2_Pin;
+
+        uint32_t reset_bits = (uint32_t)RGB_MASK & ~set_bits;
+
+        // 0-15 set bits, 16-31 reset bits, by columns
+        dma_buffer[i] = set_bits | (reset_bits << 16);
+    }
+    // After 63 pixel, reset all RGB outputs
+    dma_buffer[64] = (uint32_t)RGB_MASK << 16;
+}
+
+static void HUB75_SetAddress(const uint8_t row) {
+    HAL_GPIO_WritePin(A_GPIO_Port, A_Pin,
+        (row & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    HAL_GPIO_WritePin(B_GPIO_Port, B_Pin,
+        (row & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    HAL_GPIO_WritePin(C_GPIO_Port, C_Pin,
+        (row & 0x04) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    HAL_GPIO_WritePin(D_GPIO_Port, D_Pin,
+        (row & 0x08) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    // E is unused for this 64x32, 1/16 scan panel.
+    HAL_GPIO_WritePin(E_GPIO_Port, E_Pin, GPIO_PIN_RESET);
+}
+
+void HUB75_DMA_Init(void) {
+    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(LAT_GPIO_Port, LAT_Pin, GPIO_PIN_RESET);
+
+    dma_done = 0;
+    dma_error = 0;
+    dma_row = 0;
+
+    HUB75_SetAddress(0);
+
+    // Enable the TIM16 PWM output on PE0.
+    HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
+
+    // Stop the timer counter; it will be started for each DMA transfer.
+    __HAL_TIM_DISABLE(&htim16);
+
+    // Register DMA callbacks.
+    hdma_tim16_up.XferCpltCallback = HUB75_DMA_Complete;
+    hdma_tim16_up.XferErrorCallback = HUB75_DMA_Error;
+
+    // Prepare and start the first row.
+    HUB75_PrepareDMARow(0);
+    HUB75_StartDMA();
+}
+
+static void HUB75_StartDMA(void) {
+    /*
+     * Preload the first pixel manually.
+     *
+     * The first rising CLK edge occurs halfway through
+     * the first timer period. The first DMA request occurs
+     * at the end of that period.
+     *
+     * Therefore, pixel 0 must already be on GPIOD.
+     */
+    GPIOD->BSRR = dma_buffer[0];
+
+    // Stop the timer before configuring DMA.
+    __HAL_TIM_DISABLE(&htim16);
+
+    // Disable update DMA requests during setup.
+    __HAL_TIM_DISABLE_DMA(&htim16, TIM_DMA_UPDATE);
+
+    // Start from counter zero.
+    __HAL_TIM_SET_COUNTER(&htim16, 0);
+
+    // Clear any previous update flag.
+    __HAL_TIM_CLEAR_FLAG(&htim16, TIM_FLAG_UPDATE);
+
+    dma_done = 0;
+
+    /*
+     * Source:      dma_buffer[1]
+     * Destination: GPIOD->BSRR
+     * Length:      64 WORDS
+     *
+     * DMA transfers pixels 1–63 and the dummy word.
+     */
+    if (HAL_DMA_Start_IT(
+            &hdma_tim16_up,
+            (uint32_t)&dma_buffer[1],
+            (uint32_t)&GPIOD->BSRR,
+            64) != HAL_OK) {
+        dma_error = 1;
+        return;
+    }
+
+    // Enable DMA requests from TIM16 update events.
+    __HAL_TIM_ENABLE_DMA(&htim16, TIM_DMA_UPDATE);
+
+    // Start TIM16 and generate CLK on PE0.
+    __HAL_TIM_ENABLE(&htim16);
+}
+
+void HUB75_Display(void)
+{
+    // An error occurred during DMA transfer.
+    if (dma_error) Error_Handler();
+
+    // DMA is still transferring pixels.
+    // Return immediately; don't block the main loop.
+    if (!dma_done) return;
+
+    // DMA finished transferring the current row.
+    dma_done = 0;
+
+    // Disable output while changing the displayed row.
+    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
+
+    // Select the row that was just transferred.
+    HUB75_SetAddress(dma_row);
+
+    // Transfer shifted pixel data to the panel's output latch.
+    LAT_Pulse();
+
+//    // Enable display output.
+//    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_RESET);
+
+    // Move to the next row.
+    if (dma_row == 15) {
+        dma_row = 0;
+
+        // Swap buffers only after completing the entire frame.
+        if (swap_requested) {
+            uint8_t (*temp)[64] = front_buffer;
+            front_buffer = back_buffer;
+            back_buffer = temp;
+
+            swap_requested = 0;
+        }
+    } else dma_row++;
+
+
+    // Prepare the next row and start its DMA transfer.
+    HUB75_PrepareDMARow(dma_row);
+    HUB75_StartDMA();
+
+    // Enable display output.
+    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_RESET);
+}
+
+//void HUB75_Display(void) {
+//	for (uint8_t row = 0; row < 16; ++row) {
 //
-//    front_buffer = back_buffer;
-//    back_buffer = temp;
-}
-
-void HUB75_Display(void) {
-	for (uint8_t row = 0; row < 16; ++row) {
-
-		// Disable display while loading data
-		HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
-
-		// Select row
-		HAL_GPIO_WritePin(A_GPIO_Port, A_Pin, (row & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(B_GPIO_Port, B_Pin, (row & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(C_GPIO_Port, C_Pin, (row & 0x04) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(D_GPIO_Port, D_Pin, (row & 0x08) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-
-		// Keep E low for a 64x32 panel
-		HAL_GPIO_WritePin(E_GPIO_Port, E_Pin, GPIO_PIN_RESET);
-
-		for (int i = 0; i < 64; ++i) {
-
-            uint8_t top_pixel = front_buffer[row][i];
-            uint8_t bottom_pixel = front_buffer[row + 16][i];
-
-			HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, top_pixel    ? GPIO_PIN_SET : GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, bottom_pixel ? GPIO_PIN_SET : GPIO_PIN_RESET);
-
-			HAL_GPIO_WritePin(G1_GPIO_Port, G1_Pin, GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(G2_GPIO_Port, G2_Pin, GPIO_PIN_RESET);
-
-			HAL_GPIO_WritePin(B1_GPIO_Port, B1_Pin, GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(B2_GPIO_Port, B2_Pin, GPIO_PIN_RESET);
-
-			CLK_Pulse();
-		}
-		LAT_Pulse();
-
-		// Enable display
-		HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_RESET);
-	}
-    // Disable display after finishing all 16 addresses
-	HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
-
-	// swap buffers after displaying text if needed
-	if (swap_requested) {
-	    uint8_t (*temp)[64] = front_buffer;
-
-	    front_buffer = back_buffer;
-	    back_buffer = temp;
-
-	    swap_requested = 0;
-	}
-
-}
+//		// Disable display while loading data
+//		HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
+//
+//		// Select row
+//		HAL_GPIO_WritePin(A_GPIO_Port, A_Pin, (row & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(B_GPIO_Port, B_Pin, (row & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(C_GPIO_Port, C_Pin, (row & 0x04) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(D_GPIO_Port, D_Pin, (row & 0x08) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//
+//		// Keep E low for a 64x32 panel
+//		HAL_GPIO_WritePin(E_GPIO_Port, E_Pin, GPIO_PIN_RESET);
+//
+//		for (int i = 0; i < 64; ++i) {
+//
+//            uint8_t top_pixel = front_buffer[row][i];
+//            uint8_t bottom_pixel = front_buffer[row + 16][i];
+//
+//			HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, top_pixel    ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//			HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, bottom_pixel ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//
+//			HAL_GPIO_WritePin(G1_GPIO_Port, G1_Pin, GPIO_PIN_RESET);
+//			HAL_GPIO_WritePin(G2_GPIO_Port, G2_Pin, GPIO_PIN_RESET);
+//
+//			HAL_GPIO_WritePin(B1_GPIO_Port, B1_Pin, GPIO_PIN_RESET);
+//			HAL_GPIO_WritePin(B2_GPIO_Port, B2_Pin, GPIO_PIN_RESET);
+//
+////			CLK_Pulse();
+//		}
+//		LAT_Pulse();
+//
+//		// Enable display
+//		HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_RESET);
+//	}
+//    // Disable display after finishing all 16 addresses
+//	HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
+//
+//	// swap buffers after displaying text if needed
+//	if (swap_requested) {
+//	    uint8_t (*temp)[64] = front_buffer;
+//
+//	    front_buffer = back_buffer;
+//	    back_buffer = temp;
+//
+//	    swap_requested = 0;
+//	}
+//
+//}
 
 //void bouncing_ball() {
 //	uint8_t x = 0;
