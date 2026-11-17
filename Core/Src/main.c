@@ -118,9 +118,9 @@ int main(void)
   while (1)
   {
 //	  font5x7_DrawStringCentered("SONA SONA MACHKALYAN");
-//	  HUB75_ScrollTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
-	  HUB75_ReplaceTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
-
+	  HUB75_ScrollTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
+//	  HUB75_ReplaceTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
+//	  HUB75_DMA_TestPattern();
 
 	  HUB75_Display();
 
@@ -274,7 +274,7 @@ static void MX_TIM16_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM2;
-  sConfigOC.Pulse = 480;
+  sConfigOC.Pulse = 800;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;

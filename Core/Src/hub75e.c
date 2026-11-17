@@ -166,13 +166,20 @@ static void HUB75_DMA_Complete(DMA_HandleTypeDef *hdma) {
     if (hdma != &hdma_tim16_up)
         return;
 
+    //disable screen
+    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
+
     // No more timer update DMA requests.
     __HAL_TIM_DISABLE_DMA(&htim16, TIM_DMA_UPDATE);
 
     // Stop the timer before another clock pulse is generated.
     __HAL_TIM_DISABLE(&htim16);
 
+
     dma_done = 1;
+
+//    if (dma_row % 2 == 0) HUB75_SetPixel(0, dma_row);
+
 }
 
 static void HUB75_DMA_Error(DMA_HandleTypeDef *hdma) {
@@ -256,13 +263,13 @@ static void HUB75_StartDMA(void) {
      *
      * Therefore, pixel 0 must already be on GPIOD.
      */
-    GPIOD->BSRR = dma_buffer[0];
-
     // Stop the timer before configuring DMA.
     __HAL_TIM_DISABLE(&htim16);
 
     // Disable update DMA requests during setup.
     __HAL_TIM_DISABLE_DMA(&htim16, TIM_DMA_UPDATE);
+
+    GPIOD->BSRR = dma_buffer[0];
 
     // Start from counter zero.
     __HAL_TIM_SET_COUNTER(&htim16, 0);
