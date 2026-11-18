@@ -29,6 +29,7 @@ static volatile uint8_t dma_done = 0;
 static volatile uint8_t dma_error = 0;
 static uint8_t dma_row = 0;
 
+volatile uint32_t dma_remaining;
 
 extern DMA_HandleTypeDef hdma_tim16_up;
 extern TIM_HandleTypeDef htim16;
@@ -311,11 +312,21 @@ void HUB75_Display(void)
     // Return immediately; don't block the main loop.
     if (!dma_done) return;
 
+    dma_remaining = __HAL_DMA_GET_COUNTER(&hdma_tim16_up);
+//    if(!dma_remaining) HUB75_SetPixel(0,0);
+
     // DMA finished transferring the current row.
     dma_done = 0;
 
     // Disable output while changing the displayed row.
     HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
+
+//    if(!dma_remaining) HUB75_SetPixel(0,0);
+    // Temporary timing test.
+    for (volatile uint32_t i = 0; i < 20; i++)
+    {
+        __NOP();
+    }
 
     // Select the row that was just transferred.
     HUB75_SetAddress(dma_row);
