@@ -118,8 +118,8 @@ int main(void)
   while (1)
   {
 //	  font5x7_DrawStringCentered("SONA SONA MACHKALYAN");
-	  HUB75_ScrollTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
-//	  HUB75_ReplaceTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
+//	  HUB75_ScrollTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
+	  HUB75_ReplaceTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
 //	  HUB75_DMA_TestPattern();
 
 	  HUB75_Display();

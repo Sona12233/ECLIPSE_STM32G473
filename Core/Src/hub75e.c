@@ -29,8 +29,6 @@ static volatile uint8_t dma_done = 0;
 static volatile uint8_t dma_error = 0;
 static uint8_t dma_row = 0;
 
-volatile uint32_t dma_remaining;
-
 extern DMA_HandleTypeDef hdma_tim16_up;
 extern TIM_HandleTypeDef htim16;
 
@@ -39,10 +37,8 @@ static void HUB75_StartDMA(void);
 // REMOVE LATER
 void HUB75_DMA_TestPattern(void)
 {
-	for (uint8_t row = 0; row < 32; row++)
-	{
-	    for (uint8_t col = 0; col < 64; col++)
-	    {
+	for (uint8_t row = 0; row < 32; row++) {
+	    for (uint8_t col = 0; col < 64; col++) {
 	        if (col > 60) framebuffer1[row][col] = 1;
 	    }
 	}
@@ -164,31 +160,26 @@ void HUB75_SwapBuffers(void) {
 }
 
 static void HUB75_DMA_Complete(DMA_HandleTypeDef *hdma) {
-    if (hdma != &hdma_tim16_up)
-        return;
+    if (hdma != &hdma_tim16_up) return;
 
-    //disable screen
-    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
+    // Stop the timer before another clock pulse is generated.
+    CLEAR_BIT(htim16.Instance->CR1, TIM_CR1_CEN);
 
     // No more timer update DMA requests.
     __HAL_TIM_DISABLE_DMA(&htim16, TIM_DMA_UPDATE);
 
-    // Stop the timer before another clock pulse is generated.
-    __HAL_TIM_DISABLE(&htim16);
-
-
+    //disable screen
+    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
     dma_done = 1;
-
-//    if (dma_row % 2 == 0) HUB75_SetPixel(0, dma_row);
-
 }
 
 static void HUB75_DMA_Error(DMA_HandleTypeDef *hdma) {
     if (hdma != &hdma_tim16_up)
         return;
 
+    // Stop the timer before another clock pulse is generated.
+    CLEAR_BIT(htim16.Instance->CR1, TIM_CR1_CEN);
     __HAL_TIM_DISABLE_DMA(&htim16, TIM_DMA_UPDATE);
-    __HAL_TIM_DISABLE(&htim16);
 
     dma_error = 1;
 }
@@ -243,7 +234,7 @@ void HUB75_DMA_Init(void) {
     HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
 
     // Stop the timer counter; it will be started for each DMA transfer.
-    __HAL_TIM_DISABLE(&htim16);
+    CLEAR_BIT(htim16.Instance->CR1, TIM_CR1_CEN);
 
     // Register DMA callbacks.
     hdma_tim16_up.XferCpltCallback = HUB75_DMA_Complete;
@@ -265,7 +256,7 @@ static void HUB75_StartDMA(void) {
      * Therefore, pixel 0 must already be on GPIOD.
      */
     // Stop the timer before configuring DMA.
-    __HAL_TIM_DISABLE(&htim16);
+	CLEAR_BIT(htim16.Instance->CR1, TIM_CR1_CEN);
 
     // Disable update DMA requests during setup.
     __HAL_TIM_DISABLE_DMA(&htim16, TIM_DMA_UPDATE);
@@ -312,21 +303,11 @@ void HUB75_Display(void)
     // Return immediately; don't block the main loop.
     if (!dma_done) return;
 
-    dma_remaining = __HAL_DMA_GET_COUNTER(&hdma_tim16_up);
-//    if(!dma_remaining) HUB75_SetPixel(0,0);
-
     // DMA finished transferring the current row.
     dma_done = 0;
 
     // Disable output while changing the displayed row.
     HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
-
-//    if(!dma_remaining) HUB75_SetPixel(0,0);
-    // Temporary timing test.
-    for (volatile uint32_t i = 0; i < 20; i++)
-    {
-        __NOP();
-    }
 
     // Select the row that was just transferred.
     HUB75_SetAddress(dma_row);
