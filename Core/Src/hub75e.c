@@ -23,14 +23,22 @@ static volatile uint8_t swap_requested = 0;
                   R2_Pin | G2_Pin | B2_Pin)
 // 00000000 10011111 = 0x009F
 
+// 64 clocks × 960 TIM16 ticks ÷ 96 MHz = 640 µs.
+#define HUB75_ROW_SHIFT_US 640u
+
 static uint32_t dma_buffer[65];
 
 static volatile uint8_t dma_done = 0;
 static volatile uint8_t dma_error = 0;
 static uint8_t dma_row = 0;
 
+static uint8_t brightness_percent;
+static uint16_t oe_started_us;
+static uint16_t oe_on_time_us;
+
 extern DMA_HandleTypeDef hdma_tim16_up;
 extern TIM_HandleTypeDef htim16;
+extern TIM_HandleTypeDef htim6;
 
 static void HUB75_StartDMA(void);
 
@@ -51,6 +59,23 @@ void HUB75_DMA_TestPattern(void)
 //	}
 }
 
+void HUB75_SetBrightness(const uint8_t percent) {
+    brightness_percent = (percent > 100u) ? 100u : percent;
+}
+
+static void HUB75_ShowLatchedRow(void) {
+    oe_on_time_us = 0u;
+
+    if (brightness_percent == 0u)
+        return;  // OE is already high from the row transition.
+
+    if (brightness_percent < 100u) {
+        oe_on_time_us = (HUB75_ROW_SHIFT_US * brightness_percent) / 100u;
+        oe_started_us = (uint16_t)__HAL_TIM_GET_COUNTER(&htim6);
+    }
+
+    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_RESET);
+}
 
 static void HUB75_Clear(void)
 {
@@ -221,6 +246,11 @@ static void HUB75_SetAddress(const uint8_t row) {
 }
 
 void HUB75_DMA_Init(void) {
+
+	HUB75_SetBrightness(0u);
+
+	if (HAL_TIM_Base_Start(&htim6) != HAL_OK) Error_Handler();
+
     HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(LAT_GPIO_Port, LAT_Pin, GPIO_PIN_RESET);
 
@@ -283,6 +313,7 @@ static void HUB75_StartDMA(void) {
             (uint32_t)&dma_buffer[1],
             (uint32_t)&GPIOD->BSRR,
             64) != HAL_OK) {
+    	HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
         dma_error = 1;
         return;
     }
@@ -298,6 +329,16 @@ void HUB75_Display(void)
 {
     // An error occurred during DMA transfer.
     if (dma_error) Error_Handler();
+
+    if (oe_on_time_us != 0u) {
+        uint16_t now = (uint16_t)__HAL_TIM_GET_COUNTER(&htim6);
+
+        if ((uint16_t)(now - oe_started_us) >= oe_on_time_us) {
+        	// disable if display is on defined time
+            HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_SET);
+            oe_on_time_us = 0u;
+        }
+    }
 
     // DMA is still transferring pixels.
     // Return immediately; don't block the main loop.
@@ -335,10 +376,11 @@ void HUB75_Display(void)
 
     // Prepare the next row and start its DMA transfer.
     HUB75_PrepareDMARow(dma_row);
+    HUB75_ShowLatchedRow();
     HUB75_StartDMA();
 
-    // Enable display output.
-    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_RESET);
+//    // Enable display output.
+//    HAL_GPIO_WritePin(OE_GPIO_Port, OE_Pin, GPIO_PIN_RESET);
 }
 
 //void HUB75_Display(void) {
