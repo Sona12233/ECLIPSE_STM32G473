@@ -247,7 +247,7 @@ static void HUB75_SetAddress(const uint8_t row) {
 
 void HUB75_DMA_Init(void) {
 
-	HUB75_SetBrightness(0u);
+	HUB75_SetBrightness(100u);
 
 	if (HAL_TIM_Base_Start(&htim6) != HAL_OK) Error_Handler();
 

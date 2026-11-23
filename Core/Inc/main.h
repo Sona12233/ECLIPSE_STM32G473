@@ -59,6 +59,18 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define BILL_Pin GPIO_PIN_9
+#define BILL_GPIO_Port GPIOE
+#define BILL_EXTI_IRQn EXTI9_5_IRQn
+#define COIN_Pin GPIO_PIN_10
+#define COIN_GPIO_Port GPIOE
+#define COIN_EXTI_IRQn EXTI15_10_IRQn
+#define CASHLESS_Pin GPIO_PIN_11
+#define CASHLESS_GPIO_Port GPIOE
+#define CASHLESS_EXTI_IRQn EXTI15_10_IRQn
+#define SENSE_Pin GPIO_PIN_15
+#define SENSE_GPIO_Port GPIOE
+#define SENSE_EXTI_IRQn EXTI15_10_IRQn
 #define R1_Pin GPIO_PIN_0
 #define R1_GPIO_Port GPIOD
 #define G1_Pin GPIO_PIN_1
