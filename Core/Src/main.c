@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include "timer.h"
 #include "hub75e.h"
+#include "payment_pulse.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -110,6 +111,7 @@ int main(void)
       "UIOP",
 	  "ASDFGHJK",
   };
+  uint32_t new_total;
 
   HUB75_DMA_Init();
 //  HUB75_DMA_TestPattern();
@@ -122,7 +124,13 @@ int main(void)
   {
 //	  font5x7_DrawStringCentered("SONA SONA MACHKALYAN");
 //	  HUB75_ScrollTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
-	  HUB75_ReplaceTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
+//	  HUB75_ReplaceTexts(my_text, sizeof(my_text) / sizeof(my_text[0]));
+	  uint32_t new_total;
+
+	  if (PaymentPulse_UpdateTotal(&new_total))
+	      font5x7_display_uint32(new_total);
+
+	  HUB75_Display();
 //	  HUB75_DMA_TestPattern();
 
 	  HUB75_Display();

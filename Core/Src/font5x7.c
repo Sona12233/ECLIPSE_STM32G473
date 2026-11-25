@@ -6,6 +6,8 @@
  */
 
 #include "font5x7.h"
+#include <inttypes.h>
+#include <stdio.h>
 
 #define FONT_HEIGHT 7
 #define FONT_WIDTH  5
@@ -474,6 +476,27 @@ void font5x7_DrawStringCentered(const char* text) {
 		font5x7_display_two_line(text, size);
 
 	HUB75_SwapBuffers();
+}
+
+void font5x7_display_uint32(uint32_t number) {
+    /* A uint32_t has at most 10 decimal digits, plus the string terminator. */
+    char text[11];
+
+    /* For example, 200 becomes the string "200" and digit_count is 3. */
+    const uint8_t digit_count = snprintf(text, sizeof(text), "%" PRIu32, number);
+
+    if (digit_count <= 0 || digit_count >= (uint8_t)sizeof(text))
+        return;
+
+    /* Five columns per digit, with one blank column between digits. */
+    const int text_width = digit_count * (FONT_WIDTH + 1) - 1;
+    const uint8_t start_col = (uint8_t)((64 - text_width) / 2);
+    const uint8_t start_row = 12U;
+
+    /* Clear the drawing buffer, draw the new number, then publish the frame. */
+    HUB75_ClearScreen();
+    font5x7_display_one_line(text, (uint8_t)digit_count, start_row, start_col);
+    HUB75_SwapBuffers();
 }
 
 void font5x7_display_one_line(const char* text, const uint8_t size,

@@ -22,6 +22,9 @@ void font5x7_DrawStringCentered(const char* text);
 void font5x7_display_one_line(const char* text, const uint8_t size,
 		const uint8_t start_row, uint8_t start_col);
 
+/* Replace the current screen with one centered unsigned number. */
+void font5x7_display_uint32(uint32_t number);
+
 void font5x7_display_two_line(const char* text, const uint8_t size);
 
 void HUB75_ReplaceTexts(const char* text[], const uint8_t SIZE);
